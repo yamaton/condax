@@ -80,6 +80,25 @@ def update_all_packages():
             update_package(package)
 
 
+def list_all_packages():
+    packages = []
+    for package in os.listdir(CONDA_ENV_PREFIX_PATH):
+        if os.path.isdir(os.path.join(CONDA_ENV_PREFIX_PATH, package)):
+            packages.append(package)
+    packages.sort()
+
+    # messages follow conda's 'human' format
+    print("# packages in environment at %s:" % CONDA_ENV_PREFIX_PATH)
+    print("#")
+    print(f"# %-23s %-15s %15s" % ("Name", "Version", "Build"))
+    for package in packages:
+        try:
+            name, version, build = conda.get_package_info(package)
+            print(f"{name:<25} {version:<15} {build:>15}")
+        except ValueError:
+            print(f"WARNING: The directory '{package}' is corrupted.", file=sys.stderr)
+
+
 def update_package(package):
     exit_if_not_installed(package)
     try:
