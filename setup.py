@@ -18,7 +18,7 @@ with open("condax/__init__.py", "r") as f:
 with open("README.md", "r", encoding="utf-8") as f:
     readme = f.read()
 
-REQUIRES = ["click", "requests", "userpath", "PyYAML"]
+REQUIRES = ["click", "requests", "userpath", "PyYAML", "rainbowlog>=2.0.0"]
 
 setup(
     name="condax",
@@ -43,6 +43,6 @@ setup(
     install_requires=REQUIRES,
     tests_require=["coverage", "pytest"],
     packages=find_packages(exclude=("tests", "tests.*")),
-    entry_points={"console_scripts": ["condax = condax.cli:cli"]},
+    entry_points={"console_scripts": ["condax = condax.cli.__main__:main"]},
     zip_safe=True,
 )
