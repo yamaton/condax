@@ -8,13 +8,13 @@ def test_fix_links():
     """
     from condax.core import install_package, inject_package_to, fix_links
     import condax.config as config
-    from condax.utils import to_path
+    from condax.utils import FullPath
 
     # prep
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
@@ -106,14 +106,14 @@ def test_fix_links_without_metadata():
         fix_links,
     )
     import condax.config as config
-    import condax.metadata as metadata
-    from condax.utils import to_path
+    import condax.condax.metadata as metadata
+    from condax.utils import FullPath
 
     # prep
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 

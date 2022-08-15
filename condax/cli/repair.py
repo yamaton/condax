@@ -27,5 +27,5 @@ from . import cli, options
 def repair(is_migrating, **_):
     if is_migrating:
         migrate.from_old_version()
-    conda.setup_micromamba()
+    conda.install_micromamba()
     core.fix_links()

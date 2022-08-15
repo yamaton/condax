@@ -10,7 +10,7 @@ from typing import Counter, Dict, Iterable, List
 
 import condax.conda as conda
 from condax.exceptions import CondaxError
-import condax.metadata as metadata
+import condax.condax.metadata as metadata
 import condax.wrapper as wrapper
 import condax.utils as utils
 import condax.config as config
@@ -18,55 +18,6 @@ from condax.config import C
 
 
 logger = logging.getLogger(__name__)
-
-
-def create_link(package: str, exe: Path, is_forcing: bool = False) -> bool:
-    micromamba_exe = conda.ensure_micromamba()
-    executable_name = exe.name
-    # FIXME: Enforcing conda (not mamba) for `conda run` for now
-    prefix = conda.conda_env_prefix(package)
-    if os.name == "nt":
-        script_lines = [
-            "@rem Entrypoint created by condax\n",
-            f"@call {utils.quote(micromamba_exe)} run --prefix {utils.quote(prefix)} {utils.quote(exe)} %*\n",
-        ]
-    else:
-        script_lines = [
-            "#!/usr/bin/env bash\n",
-            "\n",
-            "# Entrypoint created by condax\n",
-            f'{utils.quote(micromamba_exe)} run --prefix {utils.quote(prefix)} {utils.quote(exe)} "$@"\n',
-        ]
-        if utils.to_bool(os.environ.get("CONDAX_HIDE_EXITCODE", False)):
-            # Let scripts to return exit code 0 constantly
-            script_lines.append("exit 0\n")
-
-    script_path = _get_wrapper_path(executable_name)
-    if script_path.exists() and not is_forcing:
-        user_input = input(f"{executable_name} already exists. Overwrite? (y/N) ")
-        if user_input.strip().lower() not in ("y", "yes"):
-            logger.warning(f"Skipped creating entrypoint: {executable_name}")
-            return False
-
-    if script_path.exists():
-        logger.warning(f"Overwriting entrypoint: {executable_name}")
-        utils.unlink(script_path)
-    with open(script_path, "w") as fo:
-        fo.writelines(script_lines)
-    shutil.copystat(exe, script_path)
-    return True
-
-
-def create_links(
-    package: str, executables_to_link: Iterable[Path], is_forcing: bool = False
-):
-    linked = (
-        exe.name
-        for exe in sorted(executables_to_link)
-        if create_link(package, exe, is_forcing=is_forcing)
-    )
-    if executables_to_link:
-        logger.info("\n  - ".join(("Created the following entrypoint links:", *linked)))
 
 
 def remove_links(package: str, app_names_to_unlink: Iterable[str]):
@@ -97,33 +48,29 @@ def remove_links(package: str, app_names_to_unlink: Iterable[str]):
         )
 
 
-class PackageInstalledError(CondaxError):
-    def __init__(self, package: str):
-        super().__init__(
-            20,
-            f"Package `{package}` is already installed. Use `--force` to force install.",
-        )
-
-
 def install_package(
     spec: str,
+    location: Path,
+    bin_dir: Path,
+    channels: Iterable[str],
     is_forcing: bool = False,
     conda_stdout: bool = False,
 ):
     package, _ = utils.split_match_specs(spec)
+    env = location / package
 
-    if conda.has_conda_env(package):
+    if conda.is_conda_env(env):
         if is_forcing:
             logger.warning(f"Overwriting environment for {package}")
-            conda.remove_conda_env(package, conda_stdout)
+            conda.remove_conda_env(env, conda_stdout)
         else:
-            raise PackageInstalledError(package)
+            raise PackageInstalledError(package, location)
 
-    conda.create_conda_environment(spec, conda_stdout)
-    executables_to_link = conda.determine_executables_from_env(package)
-    utils.mkdir(C.bin_dir())
-    create_links(package, executables_to_link, is_forcing=is_forcing)
-    _create_metadata(package)
+    conda.create_conda_environment(env, spec, conda_stdout, channels, bin_dir)
+    executables_to_link = conda.determine_executables_from_env(env, package)
+    utils.mkdir(bin_dir)
+    create_links(env, executables_to_link, bin_dir, is_forcing=is_forcing)
+    _create_metadata(env, package)
     logger.info(f"`{package}` has been installed by condax")
 
 
@@ -372,16 +319,6 @@ def update_package(
         _inject_to_metadata(env, pkg)
 
 
-def _create_metadata(package: str):
-    """
-    Create metadata file
-    """
-    apps = [p.name for p in conda.determine_executables_from_env(package)]
-    main = metadata.MainPackage(package, apps)
-    meta = metadata.CondaxMetaData(main)
-    meta.save()
-
-
 class NoMetadataError(CondaxError):
     def __init__(self, env: str):
         super().__init__(22, f"Failed to recreate condax_metadata.json in {env}")
@@ -484,13 +421,6 @@ def _get_apps(env_name: str) -> List[str]:
     return meta.main_package.apps + [
         app for p in meta.injected_packages if p.include_apps for app in p.apps
     ]
-
-
-def _get_wrapper_path(cmd_name: str) -> Path:
-    p = C.bin_dir() / cmd_name
-    if os.name == "nt":
-        p = p.parent / (p.stem + ".bat")
-    return p
 
 
 def export_all_environments(out_dir: str, conda_stdout: bool = False) -> None:

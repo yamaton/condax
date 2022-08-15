@@ -1,7 +1,6 @@
 import logging
 import sys
 from urllib.error import HTTPError
-from condax import config
 from condax.exceptions import CondaxError
 from .install import install
 from .remove import remove, uninstall
@@ -34,10 +33,6 @@ def main():
     logger = logging.getLogger(__package__)
 
     try:
-        try:
-            config.set_via_file(config.DEFAULT_CONFIG)
-        except config.MissingConfigFileError:
-            pass
         cli()
     except CondaxError as e:
         if e.exit_code:

@@ -1,8 +1,8 @@
 Condax generally requires very little configuration.
 
-Condax will read configuration settings from a `~/.config/condax/config.yaml` file.
+Condax will read configuration settings from a `~/.config/condax/config.yaml` file. This path can be overridden by the `--config` command line argument.
 
-This is the default state for this file.
+This is the expected format for the configuration file. All settings are optional.
 
 ```yaml
 prefix_dir: "~/.local/share/condax/envs"

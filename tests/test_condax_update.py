@@ -9,14 +9,14 @@ def test_condax_update_main_apps():
         update_package,
     )
     import condax.config as config
-    from condax.utils import to_path, is_env_dir
-    import condax.metadata as metadata
+    from condax.utils import FullPath, is_env_dir
+    import condax.condax.metadata as metadata
 
     # prep
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge", "bioconda"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
