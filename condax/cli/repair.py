@@ -6,7 +6,7 @@ import condax.core as core
 import condax.migrate as migrate
 from condax import __version__
 
-from . import cli, options_logging
+from . import cli, options
 
 
 @cli.command(
@@ -23,7 +23,7 @@ from . import cli, options_logging
     is_flag=True,
     default=False,
 )
-@options_logging
+@options.common
 def repair(is_migrating, **_):
     if is_migrating:
         migrate.from_old_version()

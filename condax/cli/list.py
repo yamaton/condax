@@ -3,7 +3,7 @@ import click
 import condax.core as core
 from condax import __version__
 
-from . import cli, options_logging
+from . import cli, options
 
 
 @cli.command(
@@ -27,6 +27,6 @@ from . import cli, options_logging
     default=False,
     help="Show packages injected into the main app's environment.",
 )
-@options_logging
+@options.common
 def run_list(short: bool, include_injected: bool, **_):
     core.list_all_packages(short=short, include_injected=include_injected)
