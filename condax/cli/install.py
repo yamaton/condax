@@ -7,14 +7,7 @@ import condax.config as config
 import condax.core as core
 from condax import __version__
 
-from . import (
-    cli,
-    option_config,
-    option_channels,
-    option_is_forcing,
-    option_channels,
-    options_logging,
-)
+from . import cli, options
 
 
 @cli.command(
@@ -25,18 +18,17 @@ from . import (
     provided by it to `{config.DEFAULT_BIN_DIR}`.
     """
 )
-@option_channels
-@option_config
-@option_is_forcing
-@options_logging
-@click.argument("packages", nargs=-1)
+@options.channels
+@options.is_forcing
+@options.common
+@options.packages
 def install(
     packages: List[str],
     is_forcing: bool,
-    verbose: int,
+    log_level: int,
     **_,
 ):
     for pkg in packages:
         core.install_package(
-            pkg, is_forcing=is_forcing, conda_stdout=verbose <= logging.INFO
+            pkg, is_forcing=is_forcing, conda_stdout=log_level <= logging.INFO
         )

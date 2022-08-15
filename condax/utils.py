@@ -71,7 +71,7 @@ def is_executable(path: Path) -> bool:
             for ext in os.environ.get("PATHEXT", "").split(os.pathsep)
         ]
         ext = path.suffix.lower()
-        return ext and (ext in pathexts)
+        return bool(ext) and (ext in pathexts)
 
     return os.access(path, os.X_OK)
 

@@ -5,7 +5,7 @@ import click
 import condax.core as core
 from condax import __version__
 
-from . import cli, options_logging
+from . import cli, options
 
 
 @cli.command(
@@ -16,11 +16,11 @@ from . import cli, options_logging
     conda environment.
     """
 )
-@options_logging
-@click.argument("packages", nargs=-1)
-def remove(packages: List[str], verbose: int, **_):
+@options.common
+@options.packages
+def remove(packages: List[str], log_level: int, **_):
     for pkg in packages:
-        core.remove_package(pkg, conda_stdout=verbose <= logging.INFO)
+        core.remove_package(pkg, conda_stdout=log_level <= logging.INFO)
 
 
 @cli.command(
@@ -28,7 +28,7 @@ def remove(packages: List[str], verbose: int, **_):
     Alias for condax remove.
     """
 )
-@options_logging
-@click.argument("packages", nargs=-1)
+@options.common
+@options.packages
 def uninstall(packages: List[str], **_):
     remove(packages)

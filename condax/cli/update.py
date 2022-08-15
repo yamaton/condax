@@ -7,7 +7,7 @@ import click
 import condax.core as core
 from condax import __version__
 
-from . import cli, options_logging
+from . import cli, options
 
 
 @cli.command(
@@ -23,7 +23,7 @@ from . import cli, options_logging
 @click.option(
     "--update-specs", is_flag=True, help="Update based on provided specifications."
 )
-@options_logging
+@options.common
 @click.argument("packages", required=False, nargs=-1)
 @click.pass_context
 def update(
@@ -31,13 +31,15 @@ def update(
     all: bool,
     packages: List[str],
     update_specs: bool,
-    verbose: int,
+    log_level: int,
     **_
 ):
     if all:
         core.update_all_packages(update_specs)
     elif packages:
         for pkg in packages:
-            core.update_package(pkg, update_specs, conda_stdout=verbose <= logging.INFO)
+            core.update_package(
+                pkg, update_specs, conda_stdout=log_level <= logging.INFO
+            )
     else:
         ctx.fail("No packages specified.")
