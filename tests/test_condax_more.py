@@ -15,18 +15,18 @@ def test_export_import():
         import_environments,
     )
     import condax.config as config
-    from condax.utils import to_path
+    from condax.utils import FullPath
 
     # prep
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
     export_dir_fp = tempfile.TemporaryDirectory()
-    export_dir = to_path(export_dir_fp.name)
+    export_dir = FullPath(export_dir_fp.name)
 
     gh = "gh"
     injected_rg_name = "ripgrep"

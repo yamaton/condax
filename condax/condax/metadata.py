@@ -1,29 +1,44 @@
+from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
-from condax.config import C
+from condax.conda import env_info
 
 
-class _PackageBase(object):
+def create_metadata(env: Path, package: str, executables: Iterable[Path]):
+    """
+    Create metadata file
+    """
+    apps = [p.name for p in (executables or env_info.find_exes(env, package))]
+    main = MainPackage(package, env, apps)
+    meta = CondaxMetaData(main)
+    meta.save()
+
+
+class _PackageBase:
     def __init__(self, name: str, apps: List[str], include_apps: bool):
         self.name = name
         self.apps = apps
         self.include_apps = include_apps
 
+    def __lt__(self, other):
+        return self.name < other.name
 
+
+@dataclass
 class MainPackage(_PackageBase):
-    def __init__(self, name: str, apps: List[str], include_apps: bool = True):
-        self.name = name
-        self.apps = apps
-        self.include_apps = True
+    name: str
+    prefix: Path
+    apps: List[str]
+    include_apps: bool = True
 
 
 class InjectedPackage(_PackageBase):
     pass
 
 
-class CondaxMetaData(object):
+class CondaxMetaData:
     """
     Handle metadata information written in `condax_metadata.json`
     placed in each environment.
@@ -31,37 +46,29 @@ class CondaxMetaData(object):
 
     metadata_file = "condax_metadata.json"
 
-    @classmethod
-    def get_path(cls, package: str) -> Path:
-        p = C.prefix_dir() / package / cls.metadata_file
-        return p
-
-    def __init__(self, main: MainPackage, injected: List[InjectedPackage] = []):
+    def __init__(self, main: MainPackage, injected: Iterable[InjectedPackage] = ()):
         self.main_package = main
-        self.injected_packages = injected
+        self.injected_packages = tuple(sorted(injected))
 
     def inject(self, package: InjectedPackage):
-        if self.injected_packages is None:
-            self.injected_packages = []
-        already_injected = [p.name for p in self.injected_packages]
-        if package.name in already_injected:
-            return
-        self.injected_packages.append(package)
+        self.injected_packages = tuple(sorted(set(self.injected_packages) | {package}))
 
     def uninject(self, name: str):
-        self.injected_packages = [p for p in self.injected_packages if p.name != name]
+        self.injected_packages = tuple(
+            p for p in self.injected_packages if p.name != name
+        )
 
     def to_json(self) -> str:
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     def save(self) -> None:
-        p = CondaxMetaData.get_path(self.main_package.name)
+        p = self.main_package.prefix / self.metadata_file
         with open(p, "w") as fo:
             fo.write(self.to_json())
 
 
-def load(package: str) -> Optional[CondaxMetaData]:
-    p = CondaxMetaData.get_path(package)
+def load(prefix: Path) -> Optional[CondaxMetaData]:
+    p = prefix / CondaxMetaData.metadata_file
     if not p.exists():
         return None
 

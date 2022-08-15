@@ -1,3 +1,4 @@
+from functools import partial
 import io
 import json
 import logging
@@ -15,69 +16,11 @@ import requests
 
 from condax.config import C
 from condax.exceptions import CondaxError
-from condax.utils import to_path
+from condax.utils import FullPath
 import condax.utils as utils
 
 
 logger = logging.getLogger(__name__)
-
-
-def _ensure(execs: Iterable[str], installer: Callable[[], Path]) -> Path:
-    for exe in execs:
-        exe_path = shutil.which(exe)
-        if exe_path is not None:
-            return to_path(exe_path)
-
-    logger.info("No existing conda installation found. Installing the standalone")
-    return installer()
-
-
-def ensure_conda() -> Path:
-    return _ensure(("conda", "mamba"), setup_conda)
-
-
-def ensure_micromamba() -> Path:
-    return _ensure(("micromamba",), setup_micromamba)
-
-
-def setup_conda() -> Path:
-    url = utils.get_conda_url()
-    resp = requests.get(url, allow_redirects=True)
-    resp.raise_for_status()
-    utils.mkdir(C.bin_dir())
-    exe_name = "conda.exe" if os.name == "nt" else "conda"
-    target_filename = C.bin_dir() / exe_name
-    with open(target_filename, "wb") as fo:
-        fo.write(resp.content)
-    st = os.stat(target_filename)
-    os.chmod(target_filename, st.st_mode | stat.S_IXUSR)
-    return target_filename
-
-
-def setup_micromamba() -> Path:
-    utils.mkdir(C.bin_dir())
-    exe_name = "micromamba.exe" if os.name == "nt" else "micromamba"
-    umamba_exe = C.bin_dir() / exe_name
-    _download_extract_micromamba(umamba_exe)
-    return umamba_exe
-
-
-def _download_extract_micromamba(umamba_dst: Path) -> None:
-    url = utils.get_micromamba_url()
-    print(f"Downloading micromamba from {url}")
-    response = requests.get(url, allow_redirects=True)
-    response.raise_for_status()
-
-    utils.mkdir(umamba_dst.parent)
-    tarfile_obj = io.BytesIO(response.content)
-    with tarfile.open(fileobj=tarfile_obj) as tar, open(umamba_dst, "wb") as f:
-        p = "Library/bin/micromamba.exe" if os.name == "nt" else "bin/micromamba"
-        extracted = tar.extractfile(p)
-        if extracted:
-            shutil.copyfileobj(extracted, f)
-
-    st = os.stat(umamba_dst)
-    os.chmod(umamba_dst, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
 ## Need to activate if using micromamba as drop-in replacement
@@ -87,33 +30,6 @@ def _download_extract_micromamba(umamba_dst: Path) -> None:
 #         f'eval "$({umamba_path} shell hook --shell posix --prefix {C.mamba_root_prefix()})"',
 #         shell=True,
 #     )
-
-
-def create_conda_environment(spec: str, stdout: bool) -> None:
-    """Create an environment by installing a package.
-
-    NOTE: `spec` may contain version specificaitons.
-    """
-    conda_exe = ensure_conda()
-    prefix = conda_env_prefix(spec)
-
-    channels = C.channels()
-    channels_args = [x for c in channels for x in ["--channel", c]]
-
-    _subprocess_run(
-        [
-            conda_exe,
-            "create",
-            "--prefix",
-            prefix,
-            "--override-channels",
-            *channels_args,
-            "--quiet",
-            "--yes",
-            shlex.quote(spec),
-        ],
-        suppress_stdout=not stdout,
-    )
 
 
 def inject_to_conda_env(specs: Iterable[str], env_name: str, stdout: bool) -> None:
@@ -163,16 +79,6 @@ def uninject_from_conda_env(
     )
 
 
-def remove_conda_env(package: str, stdout: bool) -> None:
-    """Remove a conda environment."""
-    conda_exe = ensure_conda()
-
-    _subprocess_run(
-        [conda_exe, "remove", "--prefix", conda_env_prefix(package), "--all", "--yes"],
-        suppress_stdout=not stdout,
-    )
-
-
 def update_conda_env(spec: str, update_specs: bool, stdout: bool) -> None:
     """Update packages in an environment.
 
@@ -212,17 +118,6 @@ def update_conda_env(spec: str, update_specs: bool, stdout: bool) -> None:
     _subprocess_run(command, suppress_stdout=not stdout)
 
 
-def has_conda_env(package: str) -> bool:
-    # TODO: check some properties of a conda environment
-    p = conda_env_prefix(package)
-    return p.exists() and p.is_dir()
-
-
-def conda_env_prefix(spec: str) -> Path:
-    package, _ = utils.split_match_specs(spec)
-    return C.prefix_dir() / package
-
-
 def get_package_info(package: str, specific_name=None) -> Tuple[str, str, str]:
     env_prefix = conda_env_prefix(package)
     package_name = package if specific_name is None else specific_name
@@ -245,46 +140,6 @@ def get_package_info(package: str, specific_name=None) -> Tuple[str, str, str]:
     return ("", "", "")
 
 
-class DeterminePkgFilesError(CondaxError):
-    def __init__(self, package: str):
-        super().__init__(40, f"Could not determine package files: {package}.")
-
-
-def determine_executables_from_env(
-    package: str, injected_package: Optional[str] = None
-) -> List[Path]:
-    def is_good(p: Union[str, Path]) -> bool:
-        p = to_path(p)
-        return p.parent.name in ("bin", "sbin", "scripts", "Scripts")
-
-    env_prefix = conda_env_prefix(package)
-    target_name = injected_package if injected_package else package
-
-    conda_meta_dir = env_prefix / "conda-meta"
-    for file_name in conda_meta_dir.glob(f"{target_name}*.json"):
-        with file_name.open() as fo:
-            package_info = json.load(fo)
-            if package_info["name"] == target_name:
-                potential_executables: Set[str] = {
-                    fn
-                    for fn in package_info["files"]
-                    if (fn.startswith("bin/") and is_good(fn))
-                    or (fn.startswith("sbin/") and is_good(fn))
-                    # They are Windows style path
-                    or (fn.lower().startswith("scripts") and is_good(fn))
-                    or (fn.lower().startswith("library") and is_good(fn))
-                }
-                break
-    else:
-        raise DeterminePkgFilesError(target_name)
-
-    return sorted(
-        env_prefix / fn
-        for fn in potential_executables
-        if utils.is_executable(env_prefix / fn)
-    )
-
-
 def _get_conda_package_dirs() -> List[Path]:
     """
     Get the conda's global package directories.
@@ -297,7 +152,7 @@ def _get_conda_package_dirs() -> List[Path]:
         return []
 
     d = json.loads(res.stdout.decode())
-    return [to_path(p) for p in d["pkgs_dirs"]]
+    return [FullPath(p) for p in d["pkgs_dirs"]]
 
 
 def _get_dependencies(package: str, pkg_dir: Path) -> List[str]:

@@ -1,5 +1,5 @@
 import textwrap
-from condax.metadata import MainPackage, InjectedPackage, CondaxMetaData
+from condax.condax.metadata import MainPackage, InjectedPackage, CondaxMetaData
 
 
 def test_metadata_to_json():

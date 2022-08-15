@@ -1,11 +1,8 @@
 import logging
-from typing import List
+from typing import Iterable, List
 
-import click
-
-import condax.config as config
-import condax.core as core
-from condax import __version__
+from condax import __version__, consts, core
+from condax.condax import Condax
 
 from . import cli, options
 
@@ -15,7 +12,7 @@ from . import cli, options
     Install a package with condax.
 
     This will install a package into a new conda environment and link the executable
-    provided by it to `{config.DEFAULT_BIN_DIR}`.
+    provided by it to `{consts.DEFAULT_PATHS.bin_dir}`.
     """
 )
 @options.channels
@@ -25,10 +22,13 @@ from . import cli, options
 def install(
     packages: List[str],
     is_forcing: bool,
-    log_level: int,
+    channels: Iterable[str],
+    condax: Condax,
     **_,
 ):
     for pkg in packages:
-        core.install_package(
-            pkg, is_forcing=is_forcing, conda_stdout=log_level <= logging.INFO
+        condax.install_package(
+            pkg,
+            is_forcing=is_forcing,
+            channels=channels,
         )

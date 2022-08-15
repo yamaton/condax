@@ -8,12 +8,12 @@ def test_pipx_install_roundtrip():
     """
     from condax.core import install_package, remove_package
     import condax.config as config
-    from condax.utils import to_path
+    from condax.utils import FullPath
 
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge", "default"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
@@ -53,12 +53,12 @@ def test_install_specific_version():
     """
     from condax.core import install_package, remove_package
     import condax.config as config
-    from condax.utils import to_path
+    from condax.utils import FullPath
 
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge", "default"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
@@ -102,12 +102,12 @@ def test_inject_then_uninject():
     """
     from condax.core import install_package, inject_package_to, uninject_package_from
     import condax.config as config
-    from condax.utils import to_path
+    from condax.utils import FullPath
 
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge", "default"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
@@ -194,13 +194,13 @@ def test_inject_with_include_apps():
         remove_package,
     )
     import condax.config as config
-    from condax.utils import to_path
+    from condax.utils import FullPath
 
     # prep
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge", "default"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
