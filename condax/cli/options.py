@@ -3,6 +3,7 @@ import rainbowlog
 from statistics import median
 from typing import Callable, Sequence
 from pathlib import Path
+from functools import wraps
 
 from condax import config
 
@@ -88,6 +89,7 @@ def log_level(f: Callable) -> Callable:
 
     @verbose
     @quiet
+    @wraps(f)
     def setup_logging_hook(verbose: int, quiet: int, **kwargs):
         handler = logging.StreamHandler()
         logger = logging.getLogger((__package__ or __name__).split(".", 1)[0])
@@ -100,19 +102,5 @@ def log_level(f: Callable) -> Callable:
         )
         logger.setLevel(level)
         return f(log_level=level, **kwargs)
-
-    # Since we replace the function with a wrapper, we need to pass some attributes on from the original function.
-    # click remembers all the options by setting __click_params__ on the function.
-    # click uses the name of the function by default as the name of the command.
-    try:
-        setattr(
-            setup_logging_hook,
-            "__click_params__",
-            getattr(f, "__click_params__")
-            + getattr(setup_logging_hook, "__click_params__"),
-        )
-    except AttributeError:
-        pass
-    setup_logging_hook.__name__ = f.__name__
 
     return setup_logging_hook
