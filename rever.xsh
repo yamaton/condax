@@ -14,8 +14,7 @@ $GITHUB_REPO = 'condax'
 
 $VERSION_BUMP_PATTERNS = [
    # These note where/how to find the version numbers
-   ('condax/__init__.py', '__version__\s*=.*', '__version__ = "$VERSION"'),
-   ('setup.py', 'version\s*=.*,', 'version="$VERSION",'),
+   ('pyproject.toml', 'version\s*=.*', 'version = "$VERSION"'),
 ]
 
 $CHANGELOG_FILENAME = 'docs/changelog.md'
