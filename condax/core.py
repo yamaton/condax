@@ -157,7 +157,7 @@ def inject_package_to(
                 injected_pkg,
             )
             create_links(env_name, executables_to_link, is_forcing=is_forcing)
-    logger.info(f"`Done injecting {pkgs_str} to `{env_name}`")
+    logger.info(f"Done injecting `{pkgs_str}` to `{env_name}`")
 
 
 def uninject_package_from(
@@ -174,7 +174,7 @@ def uninject_package_from(
 
     found = to_uninject & already_injected
     if not found:
-        logger.warning(f"`No package is uninjected from {env_name}`")
+        logger.warning(f"No package is uninjected from `{env_name}`")
         return
 
     packages_to_uninject = sorted(found)
@@ -252,7 +252,7 @@ def _list_all_packages(include_injected: bool) -> None:
     # warn if duplicate of executables are found
     duplicates = [name for (name, cnt) in executable_counts.items() if cnt > 1]
     if duplicates and not include_injected:
-        logger.warning(f"\n[warning] The following executables conflict:")
+        logger.warning(f"\nThe following executables conflict:")
         logger.warning("\n".join(f"    * {name}" for name in duplicates) + "\n")
 
 
@@ -334,7 +334,7 @@ def update_package(
             main_apps_before_update == main_apps_after_update
             and injected_apps_before_update == injected_apps_after_update
         ):
-            logger.info(f"No updates found: {env}")
+            logger.info(f"No updates found: `{env}`")
 
         to_create = main_apps_after_update - main_apps_before_update
         to_delete = main_apps_before_update - main_apps_after_update
@@ -357,7 +357,7 @@ def update_package(
             )
             create_links(env, to_create, is_forcing)
 
-        logger.info(f"{env} update successfully")
+        logger.info(f"`{env}` update successfully")
 
     except subprocess.CalledProcessError:
         logger.error(f"Failed to update `{env}`")

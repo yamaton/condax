@@ -30,18 +30,18 @@ def read_env_name(script_path: Union[str, Path]) -> Optional[str]:
     except UnicodeDecodeError:
         return None
     except:
-        logging.warning(f"Failed in file opening and parsing: {path}")
+        logging.warning(f"Failed in file opening and parsing: `{path}`")
         return None
 
     if namespace is None:
-        logging.warning(f"Failed to parse: `{script_name}`:  {path}")
+        logging.warning(f"Failed to parse: `{script_name}`: `{path}`")
         return None
     elif namespace.exec_path.name != script_name:
-        msg = f"The wrapper's {script_name} is inconsistent with the target {namespace.exec_path.name}."
+        msg = f"The wrapper's `{script_name}` is inconsistent with the target {namespace.exec_path.name}."
         logging.warning(msg)
         return None
     elif not namespace.exec_path.exists():
-        msg = f"The wrapper's exec_path {namespace.exec_path} does not exist."
+        msg = f"The wrapper's exec_path `{namespace.exec_path}` does not exist."
         logging.warning(msg)
         return None
 
@@ -68,7 +68,7 @@ def is_wrapper(exec_path: Union[str, Path]) -> bool:
     except UnicodeDecodeError:
         return False
     except:
-        logging.warning(f"Something wrong with {path}")
+        logging.warning(f"Something wrong with `{path}`")
         return False
 
     if "created by condax" not in content:
