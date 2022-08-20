@@ -64,8 +64,8 @@ def create_link(env: Path, exe: Path, location: Path, is_forcing: bool = False) 
 
     script_path = location / _get_wrapper_name(exe.name)
     if script_path.exists() and not is_forcing:
-        answer = input(f"{exe.name} already exists. Overwrite? (y/N) ").strip().lower()
-        if answer not in ("y", "yes"):
+        answer = input(f"{exe.name} already exists in {location}. Overwrite? (y/N) ")
+        if answer.strip().lower() not in ("y", "yes"):
             logger.warning(f"Skipped creating entrypoint: {exe.name}")
             return False
 

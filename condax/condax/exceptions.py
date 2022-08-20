@@ -16,3 +16,10 @@ class NotAnEnvError(CondaxError):
             102,
             f"{location} exists, is not empty, and is not a conda environment. {msg}",
         )
+
+
+class BadMetadataError(CondaxError):
+    def __init__(self, metadata_path: Path, msg: str):
+        super().__init__(
+            103, f"Error loading condax metadata at {metadata_path}: {msg}"
+        )
