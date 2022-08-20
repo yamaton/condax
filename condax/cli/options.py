@@ -22,6 +22,7 @@ def common(f: Callable) -> Callable:
     """
     options: Sequence[Callable] = (
         condax,
+        log_level,
         click.help_option("-h", "--help"),
     )
 
@@ -108,23 +109,17 @@ bin_dir = click.option(
 
 def conda(f: Callable) -> Callable:
     """
-    This click option decorator adds the --channel and --config options as well as all those added by `options.log_level` to the CLI.
+    This click option decorator adds the --channel and --config options to the CLI.
     It constructs a `Conda` object and passes it to the decorated function as `conda`.
     It reads the config file and passes it as a dict to the decorated function as `config`.
     """
 
-    @log_level
     @config
     @wraps(f)
-    def construct_conda_hook(config: Mapping[str, Any], log_level: int, **kwargs):
+    def construct_conda_hook(config: Mapping[str, Any], **kwargs):
         return f(
-            conda=Conda(
-                config.get("channels", []),
-                stdout=subprocess.DEVNULL if log_level >= logging.INFO else None,
-                stderr=subprocess.DEVNULL if log_level >= logging.CRITICAL else None,
-            ),
+            conda=Conda(config.get("channels", [])),
             config=config,
-            log_level=log_level,
             **kwargs,
         )
 

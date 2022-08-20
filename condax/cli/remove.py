@@ -1,6 +1,6 @@
 import logging
 from typing import List
-import click
+from condax.condax import Condax
 
 import condax.core as core
 from condax import __version__
@@ -18,9 +18,9 @@ from . import cli, options
 )
 @options.common
 @options.packages
-def remove(packages: List[str], log_level: int, **_):
+def remove(packages: List[str], condax: Condax, **_):
     for pkg in packages:
-        core.remove_package(pkg, conda_stdout=log_level <= logging.INFO)
+        condax.remove_package(pkg)
 
 
 @cli.command(

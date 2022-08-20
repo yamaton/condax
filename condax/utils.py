@@ -1,8 +1,9 @@
+import logging
 import os
 from pathlib import Path
 import platform
 import shlex
-from typing import Tuple, Union
+from typing import Iterable, TextIO, Tuple, Union
 import re
 import urllib.parse
 
@@ -184,9 +185,3 @@ def to_bool(value: Union[str, bool]) -> bool:
         pass
 
     return False
-
-
-def is_env_dir(path: Union[Path, str]) -> bool:
-    """Check if a path is a conda environment directory."""
-    p = FullPath(path)
-    return (p / "conda-meta" / "history").exists()

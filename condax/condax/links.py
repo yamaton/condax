@@ -2,10 +2,10 @@ import logging
 import os
 from pathlib import Path
 import shutil
-from typing import Iterable
+from typing import Iterable, List
 
 from condax.conda import installers
-from condax import utils
+from condax import utils, wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def create_link(env: Path, exe: Path, location: Path, is_forcing: bool = False) 
     if os.name == "nt":
         script_lines = [
             "@rem Entrypoint created by condax\n",
-            f"@call {utils.quote(micromamba_exe)} run --prefix {utils.quote(env)} {utils.quote(exe)} %*\n",
+            f'@call "{micromamba_exe}" run --prefix "{env}" "{exe}" %*\n',
         ]
     else:
         script_lines = [
@@ -76,6 +76,37 @@ def create_link(env: Path, exe: Path, location: Path, is_forcing: bool = False) 
         fo.writelines(script_lines)
     shutil.copystat(exe, script_path)
     return True
+
+
+def remove_links(package: str, location: Path, executables_to_unlink: Iterable[str]):
+    unlinked: List[str] = []
+    for executable_name in executables_to_unlink:
+        link_path = location / _get_wrapper_name(executable_name)
+        if os.name == "nt":
+            # FIXME: this is hand-waving for now
+            utils.unlink(link_path)
+        else:
+            wrapper_env = wrapper.read_env_name(link_path)
+
+            if wrapper_env is None:
+                utils.unlink(link_path)
+                unlinked.append(f"{executable_name} \t (failed to get env)")
+                continue
+
+            if wrapper_env != package:
+                logger.warning(
+                    f"Keeping {executable_name} as it runs in environment `{wrapper_env}`, not `{package}`."
+                )
+                continue
+
+            link_path.unlink()
+
+        unlinked.append(executable_name)
+
+    if executables_to_unlink:
+        logger.info(
+            "\n  - ".join(("Removed the following entrypoint links:", *unlinked))
+        )
 
 
 def _get_wrapper_name(name: str) -> str:

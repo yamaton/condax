@@ -5,7 +5,9 @@ import logging
 from condax import utils
 from condax.conda import Conda, env_info
 from .exceptions import PackageInstalledError, NotAnEnvError
-from . import links, metadata
+
+from . import links
+from .metadata import metadata
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class Condax:
         package = utils.package_name(spec)
         env = self.prefix_dir / package
 
-        if self.conda.is_env(env):
+        if env_info.is_env(env):
             if is_forcing:
                 logger.warning(f"Overwriting environment for {package}")
                 self.conda.remove_env(env)
@@ -53,3 +55,14 @@ class Condax:
         links.create_links(env, executables, self.bin_dir, is_forcing=is_forcing)
         metadata.create_metadata(env, package, executables)
         logger.info(f"`{package}` has been installed by condax")
+
+    def remove_package(self, package: str):
+        env = self.prefix_dir / package
+        if not env_info.is_env(env):
+            logger.warning(f"{package} is not installed with condax")
+            return
+
+        apps_to_unlink = metadata.load(env).apps
+        links.remove_links(package, self.bin_dir, apps_to_unlink)
+        self.conda.remove_env(env)
+        logger.info(f"`{package}` has been removed from condax")

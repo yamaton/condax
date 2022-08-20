@@ -18,8 +18,6 @@ class NotAnEnvError(CondaxError):
         )
 
 
-class BadMetadataError(CondaxError):
-    def __init__(self, metadata_path: Path, msg: str):
-        super().__init__(
-            103, f"Error loading condax metadata at {metadata_path}: {msg}"
-        )
+class PackageNotInstalled(CondaxError):
+    def __init__(self, package: str):
+        super().__init__(103, f"Package `{package}` is not installed with condax")

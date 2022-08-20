@@ -15,63 +15,10 @@ import condax.wrapper as wrapper
 import condax.utils as utils
 import condax.config as config
 from condax.config import C
+from condax.conda import env_info
 
 
 logger = logging.getLogger(__name__)
-
-
-def remove_links(package: str, app_names_to_unlink: Iterable[str]):
-    unlinked: List[str] = []
-    if os.name == "nt":
-        # FIXME: this is hand-waving for now
-        for executable_name in app_names_to_unlink:
-            link_path = _get_wrapper_path(executable_name)
-            utils.unlink(link_path)
-    else:
-        for executable_name in app_names_to_unlink:
-            link_path = _get_wrapper_path(executable_name)
-            wrapper_env = wrapper.read_env_name(link_path)
-            if wrapper_env is None:
-                utils.unlink(link_path)
-                unlinked.append(f"{executable_name} \t (failed to get env)")
-            elif wrapper_env == package:
-                link_path.unlink()
-                unlinked.append(executable_name)
-            else:
-                logger.warning(
-                    f"Keeping {executable_name} as it runs in environment `{wrapper_env}`, not `{package}`."
-                )
-
-    if app_names_to_unlink:
-        logger.info(
-            "\n  - ".join(("Removed the following entrypoint links:", *unlinked))
-        )
-
-
-def install_package(
-    spec: str,
-    location: Path,
-    bin_dir: Path,
-    channels: Iterable[str],
-    is_forcing: bool = False,
-    conda_stdout: bool = False,
-):
-    package, _ = utils.split_match_specs(spec)
-    env = location / package
-
-    if conda.is_conda_env(env):
-        if is_forcing:
-            logger.warning(f"Overwriting environment for {package}")
-            conda.remove_conda_env(env, conda_stdout)
-        else:
-            raise PackageInstalledError(package, location)
-
-    conda.create_conda_environment(env, spec, conda_stdout, channels, bin_dir)
-    executables_to_link = conda.determine_executables_from_env(env, package)
-    utils.mkdir(bin_dir)
-    create_links(env, executables_to_link, bin_dir, is_forcing=is_forcing)
-    _create_metadata(env, package)
-    logger.info(f"`{package}` has been installed by condax")
 
 
 def inject_package_to(
@@ -135,28 +82,6 @@ def uninject_package_from(
 
     pkgs_str = " and ".join(packages_to_uninject)
     logger.info(f"`{pkgs_str}` has been uninjected from `{env_name}`")
-
-
-class PackageNotInstalled(CondaxError):
-    def __init__(self, package: str, error: bool = True):
-        super().__init__(
-            21 if error else 0,
-            f"Package `{package}` is not installed with condax",
-        )
-
-
-def exit_if_not_installed(package: str, error: bool = True):
-    prefix = conda.conda_env_prefix(package)
-    if not prefix.exists():
-        raise PackageNotInstalled(package, error)
-
-
-def remove_package(package: str, conda_stdout: bool = False):
-    exit_if_not_installed(package, error=False)
-    apps_to_unlink = _get_apps(package)
-    remove_links(package, apps_to_unlink)
-    conda.remove_conda_env(package, conda_stdout)
-    logger.info(f"`{package}` has been removed from condax")
 
 
 def update_all_packages(update_specs: bool = False, is_forcing: bool = False):
@@ -319,23 +244,6 @@ def update_package(
         _inject_to_metadata(env, pkg)
 
 
-class NoMetadataError(CondaxError):
-    def __init__(self, env: str):
-        super().__init__(22, f"Failed to recreate condax_metadata.json in {env}")
-
-
-def _load_metadata(env: str) -> metadata.CondaxMetaData:
-    meta = metadata.load(env)
-    # For backward compatibility: metadata can be absent
-    if meta is None:
-        logger.info(f"Recreating condax_metadata.json in {env}...")
-        _create_metadata(env)
-        meta = metadata.load(env)
-        if meta is None:
-            raise NoMetadataError(env)
-    return meta
-
-
 def _inject_to_metadata(
     env: str, packages_to_inject: Iterable[str], include_apps: bool = False
 ):
@@ -367,9 +275,7 @@ def _get_all_envs() -> List[str]:
     """
     utils.mkdir(C.prefix_dir())
     return sorted(
-        pkg_dir.name
-        for pkg_dir in C.prefix_dir().iterdir()
-        if utils.is_env_dir(pkg_dir)
+        pkg_dir.name for pkg_dir in C.prefix_dir().iterdir() if env_info.is_env(pkg_dir)
     )
 
 
