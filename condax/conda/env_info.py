@@ -7,6 +7,10 @@ from condax import utils
 from .exceptions import NoPackageMetadata
 
 
+def is_env(path: Path) -> bool:
+    return (path / "conda-meta").is_dir()
+
+
 def find_exes(prefix: Path, package: str) -> List[Path]:
     """Find executables in environment `prefix` provided py a given `package`.
 

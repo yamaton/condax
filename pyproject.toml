@@ -38,6 +38,7 @@ userpath = "^1.8.0"
 PyYAML = "^6.0"
 importlib-metadata = "^4.12.0"
 rainbowlog = "^2.0.1"
+halo = "^0.0.31"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
