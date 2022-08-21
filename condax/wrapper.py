@@ -6,16 +6,16 @@ import logging
 from pathlib import Path
 from typing import Optional, List, Union
 
-from condax.utils import to_path
+from condax.utils import FullPath
 
 
-def read_env_name(script_path: Union[str, Path]) -> Optional[str]:
+def read_prefix(script_path: Union[str, Path]) -> Optional[Path]:
     """
     Read a condax bash script.
 
     Returns the environment name within which conda run is executed.
     """
-    path = to_path(script_path)
+    path = FullPath(script_path)
     script_name = path.name
     if not path.exists():
         logging.warning(f"File missing: `{path}`.")
@@ -45,14 +45,14 @@ def read_env_name(script_path: Union[str, Path]) -> Optional[str]:
         logging.warning(msg)
         return None
 
-    return namespace.prefix.name
+    return namespace.prefix
 
 
 def is_wrapper(exec_path: Union[str, Path]) -> bool:
     """
     Check if a file is a condax wrapper script.
     """
-    path = to_path(exec_path)
+    path = FullPath(exec_path)
     if not path.exists():
         return False
 
@@ -106,7 +106,7 @@ class Parser(object):
             return None
 
         first_word = words[0]
-        cmd = to_path(first_word).stem
+        cmd = FullPath(first_word).stem
         if cmd not in ("conda", "mamba", "micromamba"):
             return None
 

@@ -1,10 +1,9 @@
 import logging
 import sys
 from urllib.error import HTTPError
-from condax import config
 from condax.exceptions import CondaxError
 from .install import install
-from .remove import remove, uninstall
+from .remove import remove
 from .update import update
 from .list import run_list
 from .ensure_path import ensure_path
@@ -19,7 +18,6 @@ def main():
     for subcommand in (
         install,
         remove,
-        uninstall,
         update,
         run_list,
         ensure_path,
@@ -34,10 +32,6 @@ def main():
     logger = logging.getLogger(__package__)
 
     try:
-        try:
-            config.set_via_file(config.DEFAULT_CONFIG)
-        except config.MissingConfigFileError:
-            pass
         cli()
     except CondaxError as e:
         if e.exit_code:

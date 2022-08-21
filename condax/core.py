@@ -10,121 +10,15 @@ from typing import Counter, Dict, Iterable, List
 
 import condax.conda as conda
 from condax.exceptions import CondaxError
-import condax.metadata as metadata
+import condax.condax.metadata as metadata
 import condax.wrapper as wrapper
 import condax.utils as utils
 import condax.config as config
 from condax.config import C
+from condax.conda import env_info
 
 
 logger = logging.getLogger(__name__)
-
-
-def create_link(package: str, exe: Path, is_forcing: bool = False) -> bool:
-    micromamba_exe = conda.ensure_micromamba()
-    executable_name = exe.name
-    # FIXME: Enforcing conda (not mamba) for `conda run` for now
-    prefix = conda.conda_env_prefix(package)
-    if os.name == "nt":
-        script_lines = [
-            "@rem Entrypoint created by condax\n",
-            f"@call {utils.quote(micromamba_exe)} run --prefix {utils.quote(prefix)} {utils.quote(exe)} %*\n",
-        ]
-    else:
-        script_lines = [
-            "#!/usr/bin/env bash\n",
-            "\n",
-            "# Entrypoint created by condax\n",
-            f'{utils.quote(micromamba_exe)} run --prefix {utils.quote(prefix)} {utils.quote(exe)} "$@"\n',
-        ]
-        if utils.to_bool(os.environ.get("CONDAX_HIDE_EXITCODE", False)):
-            # Let scripts to return exit code 0 constantly
-            script_lines.append("exit 0\n")
-
-    script_path = _get_wrapper_path(executable_name)
-    if script_path.exists() and not is_forcing:
-        user_input = input(f"{executable_name} already exists. Overwrite? (y/N) ")
-        if user_input.strip().lower() not in ("y", "yes"):
-            logger.warning(f"Skipped creating entrypoint: {executable_name}")
-            return False
-
-    if script_path.exists():
-        logger.warning(f"Overwriting entrypoint: {executable_name}")
-        utils.unlink(script_path)
-    with open(script_path, "w") as fo:
-        fo.writelines(script_lines)
-    shutil.copystat(exe, script_path)
-    return True
-
-
-def create_links(
-    package: str, executables_to_link: Iterable[Path], is_forcing: bool = False
-):
-    linked = (
-        exe.name
-        for exe in sorted(executables_to_link)
-        if create_link(package, exe, is_forcing=is_forcing)
-    )
-    if executables_to_link:
-        logger.info("\n  - ".join(("Created the following entrypoint links:", *linked)))
-
-
-def remove_links(package: str, app_names_to_unlink: Iterable[str]):
-    unlinked: List[str] = []
-    if os.name == "nt":
-        # FIXME: this is hand-waving for now
-        for executable_name in app_names_to_unlink:
-            link_path = _get_wrapper_path(executable_name)
-            utils.unlink(link_path)
-    else:
-        for executable_name in app_names_to_unlink:
-            link_path = _get_wrapper_path(executable_name)
-            wrapper_env = wrapper.read_env_name(link_path)
-            if wrapper_env is None:
-                utils.unlink(link_path)
-                unlinked.append(f"{executable_name} \t (failed to get env)")
-            elif wrapper_env == package:
-                link_path.unlink()
-                unlinked.append(executable_name)
-            else:
-                logger.warning(
-                    f"Keeping {executable_name} as it runs in environment `{wrapper_env}`, not `{package}`."
-                )
-
-    if app_names_to_unlink:
-        logger.info(
-            "\n  - ".join(("Removed the following entrypoint links:", *unlinked))
-        )
-
-
-class PackageInstalledError(CondaxError):
-    def __init__(self, package: str):
-        super().__init__(
-            20,
-            f"Package `{package}` is already installed. Use `--force` to force install.",
-        )
-
-
-def install_package(
-    spec: str,
-    is_forcing: bool = False,
-    conda_stdout: bool = False,
-):
-    package, _ = utils.split_match_specs(spec)
-
-    if conda.has_conda_env(package):
-        if is_forcing:
-            logger.warning(f"Overwriting environment for {package}")
-            conda.remove_conda_env(package, conda_stdout)
-        else:
-            raise PackageInstalledError(package)
-
-    conda.create_conda_environment(spec, conda_stdout)
-    executables_to_link = conda.determine_executables_from_env(package)
-    utils.mkdir(C.bin_dir())
-    create_links(package, executables_to_link, is_forcing=is_forcing)
-    _create_metadata(package)
-    logger.info(f"`{package}` has been installed by condax")
 
 
 def inject_package_to(
@@ -188,33 +82,6 @@ def uninject_package_from(
 
     pkgs_str = " and ".join(packages_to_uninject)
     logger.info(f"`{pkgs_str}` has been uninjected from `{env_name}`")
-
-
-class PackageNotInstalled(CondaxError):
-    def __init__(self, package: str, error: bool = True):
-        super().__init__(
-            21 if error else 0,
-            f"Package `{package}` is not installed with condax",
-        )
-
-
-def exit_if_not_installed(package: str, error: bool = True):
-    prefix = conda.conda_env_prefix(package)
-    if not prefix.exists():
-        raise PackageNotInstalled(package, error)
-
-
-def remove_package(package: str, conda_stdout: bool = False):
-    exit_if_not_installed(package, error=False)
-    apps_to_unlink = _get_apps(package)
-    remove_links(package, apps_to_unlink)
-    conda.remove_conda_env(package, conda_stdout)
-    logger.info(f"`{package}` has been removed from condax")
-
-
-def update_all_packages(update_specs: bool = False, is_forcing: bool = False):
-    for package in _get_all_envs():
-        update_package(package, update_specs=update_specs, is_forcing=is_forcing)
 
 
 def list_all_packages(short=False, include_injected=False) -> None:
@@ -308,112 +175,6 @@ def _print_condax_dirs() -> None:
     )
 
 
-def update_package(
-    spec: str,
-    update_specs: bool = False,
-    is_forcing: bool = False,
-    conda_stdout: bool = False,
-) -> None:
-
-    env, _ = utils.split_match_specs(spec)
-    exit_if_not_installed(env)
-    try:
-        main_apps_before_update = set(conda.determine_executables_from_env(env))
-        injected_apps_before_update = {
-            injected: set(conda.determine_executables_from_env(env, injected))
-            for injected in _get_injected_packages(env)
-        }
-        conda.update_conda_env(spec, update_specs, conda_stdout)
-        main_apps_after_update = set(conda.determine_executables_from_env(env))
-        injected_apps_after_update = {
-            injected: set(conda.determine_executables_from_env(env, injected))
-            for injected in _get_injected_packages(env)
-        }
-
-        if (
-            main_apps_before_update == main_apps_after_update
-            and injected_apps_before_update == injected_apps_after_update
-        ):
-            logger.info(f"No updates found: {env}")
-
-        to_create = main_apps_after_update - main_apps_before_update
-        to_delete = main_apps_before_update - main_apps_after_update
-        to_delete_apps = [path.name for path in to_delete]
-
-        # Update links of main apps
-        create_links(env, to_create, is_forcing)
-        remove_links(env, to_delete_apps)
-
-        # Update links of injected apps
-        for pkg in _get_injected_packages(env):
-            to_delete = (
-                injected_apps_before_update[pkg] - injected_apps_after_update[pkg]
-            )
-            to_delete_apps = [p.name for p in to_delete]
-            remove_links(env, to_delete_apps)
-
-            to_create = (
-                injected_apps_after_update[pkg] - injected_apps_before_update[pkg]
-            )
-            create_links(env, to_create, is_forcing)
-
-        logger.info(f"{env} update successfully")
-
-    except subprocess.CalledProcessError:
-        logger.error(f"Failed to update `{env}`")
-        logger.warning(f"Recreating the environment...")
-
-        remove_package(env, conda_stdout)
-        install_package(env, is_forcing=is_forcing, conda_stdout=conda_stdout)
-
-    # Update metadata file
-    _create_metadata(env)
-    for pkg in _get_injected_packages(env):
-        _inject_to_metadata(env, pkg)
-
-
-def _create_metadata(package: str):
-    """
-    Create metadata file
-    """
-    apps = [p.name for p in conda.determine_executables_from_env(package)]
-    main = metadata.MainPackage(package, apps)
-    meta = metadata.CondaxMetaData(main)
-    meta.save()
-
-
-class NoMetadataError(CondaxError):
-    def __init__(self, env: str):
-        super().__init__(22, f"Failed to recreate condax_metadata.json in {env}")
-
-
-def _load_metadata(env: str) -> metadata.CondaxMetaData:
-    meta = metadata.load(env)
-    # For backward compatibility: metadata can be absent
-    if meta is None:
-        logger.info(f"Recreating condax_metadata.json in {env}...")
-        _create_metadata(env)
-        meta = metadata.load(env)
-        if meta is None:
-            raise NoMetadataError(env)
-    return meta
-
-
-def _inject_to_metadata(
-    env: str, packages_to_inject: Iterable[str], include_apps: bool = False
-):
-    """
-    Inject the package into the condax_metadata.json file for the env.
-    """
-    meta = _load_metadata(env)
-    for pkg in packages_to_inject:
-        apps = [p.name for p in conda.determine_executables_from_env(env, pkg)]
-        pkg_to_inject = metadata.InjectedPackage(pkg, apps, include_apps=include_apps)
-        meta.uninject(pkg)  # overwrites if necessary
-        meta.inject(pkg_to_inject)
-    meta.save()
-
-
 def _uninject_from_metadata(env: str, packages_to_uninject: Iterable[str]):
     """
     Uninject the package from the condax_metadata.json file for the env.
@@ -430,9 +191,7 @@ def _get_all_envs() -> List[str]:
     """
     utils.mkdir(C.prefix_dir())
     return sorted(
-        pkg_dir.name
-        for pkg_dir in C.prefix_dir().iterdir()
-        if utils.is_env_dir(pkg_dir)
+        pkg_dir.name for pkg_dir in C.prefix_dir().iterdir() if env_info.is_env(pkg_dir)
     )
 
 
@@ -484,13 +243,6 @@ def _get_apps(env_name: str) -> List[str]:
     return meta.main_package.apps + [
         app for p in meta.injected_packages if p.include_apps for app in p.apps
     ]
-
-
-def _get_wrapper_path(cmd_name: str) -> Path:
-    p = C.bin_dir() / cmd_name
-    if os.name == "nt":
-        p = p.parent / (p.stem + ".bat")
-    return p
 
 
 def export_all_environments(out_dir: str, conda_stdout: bool = False) -> None:
@@ -599,7 +351,7 @@ def _prune_links():
         if not wrapper.is_wrapper(link):
             continue
 
-        target_env = wrapper.read_env_name(link)
+        target_env = wrapper.read_prefix(link)
         if target_env is None:
             logging.info(f"Failed to read env name from {link}")
             continue

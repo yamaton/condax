@@ -1,9 +1,5 @@
-import logging
 from typing import List
-import click
-
-import condax.core as core
-from condax import __version__
+from condax.condax import Condax
 
 from . import cli, options
 
@@ -14,21 +10,11 @@ from . import cli, options
 
     This will remove a package installed with condax and destroy the underlying
     conda environment.
-    """
+    """,
+    aliases=["uninstall"],
 )
 @options.common
 @options.packages
-def remove(packages: List[str], log_level: int, **_):
+def remove(packages: List[str], condax: Condax, **_):
     for pkg in packages:
-        core.remove_package(pkg, conda_stdout=log_level <= logging.INFO)
-
-
-@cli.command(
-    help="""
-    Alias for condax remove.
-    """
-)
-@options.common
-@options.packages
-def uninstall(packages: List[str], **_):
-    remove(packages)
+        condax.remove_package(pkg)

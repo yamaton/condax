@@ -1,13 +1,19 @@
 import logging
+import subprocess
 import rainbowlog
+import yaml
 from statistics import median
-from typing import Callable, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 from pathlib import Path
 from functools import wraps
 
-from condax import config
+from condax import consts
+from condax.condax import Condax
+from condax.conda import Conda
 
 import click
+
+from condax.utils import FullPath
 
 
 def common(f: Callable) -> Callable:
@@ -15,8 +21,8 @@ def common(f: Callable) -> Callable:
     This decorator adds common options to the CLI.
     """
     options: Sequence[Callable] = (
-        config_file,
-        log_level,
+        condax,
+        setup_logging,
         click.help_option("-h", "--help"),
     )
 
@@ -28,12 +34,27 @@ def common(f: Callable) -> Callable:
 
 packages = click.argument("packages", nargs=-1, required=True)
 
-config_file = click.option(
+
+def _config_file_callback(_, __, config_file: Path) -> Mapping[str, Any]:
+    try:
+        with (config_file or consts.DEFAULT_PATHS.conf_file).open() as cf:
+            config = yaml.safe_load(cf) or {}
+    except FileNotFoundError:
+        config = {}
+
+    if not isinstance(config, dict):
+        raise click.BadParameter(
+            f"Config file {config_file} must contain a dict as its root."
+        )
+
+    return config
+
+
+config = click.option(
     "--config",
-    "config_file",
     type=click.Path(exists=True, path_type=Path),
-    help=f"Custom path to a condax config file in YAML. Default: {config.DEFAULT_CONFIG}",
-    callback=lambda _, __, f: (f and config.set_via_file(f)) or f,
+    help=f"Custom path to a condax config file in YAML. Default: {consts.DEFAULT_PATHS.conf_file}",
+    callback=_config_file_callback,
 )
 
 channels = click.option(
@@ -41,9 +62,7 @@ channels = click.option(
     "-c",
     "channels",
     multiple=True,
-    help=f"""Use the channels specified to install. If not specified condax will
-    default to using {config.DEFAULT_CHANNELS}, or 'channels' in the config file.""",
-    callback=lambda _, __, c: (c and config.set_via_value(channels=c)) or c,
+    help="Use the channels specified in addition to those in the configuration files of condax, conda, and/or mamba.",
 )
 
 envname = click.option(
@@ -80,11 +99,67 @@ quiet = click.option(
     help="Decrease verbosity level.",
 )
 
+bin_dir = click.option(
+    "-b",
+    "--bin-dir",
+    type=click.Path(exists=True, path_type=Path),
+    help=f"Custom path to the condax bin directory. Default: {consts.DEFAULT_PATHS.bin_dir}",
+)
 
-def log_level(f: Callable) -> Callable:
+
+def conda(f: Callable) -> Callable:
+    """
+    This click option decorator adds the --config option to the CLI.
+    It constructs a `Conda` object and passes it to the decorated function as `conda`.
+    It reads the config file and passes it as a dict to the decorated function as `config`.
+    """
+
+    @config
+    @wraps(f)
+    def construct_conda_hook(config: Mapping[str, Any], **kwargs):
+        return f(
+            conda=Conda(config.get("channels", [])),
+            config=config,
+            **kwargs,
+        )
+
+    return construct_conda_hook
+
+
+def condax(f: Callable) -> Callable:
+    """
+    This click option decorator adds the --bin-dir option as well as all those added by `options.conda` to the CLI.
+    It then constructs a `Condax` object and passes it to the decorated function as `condax`.
+    """
+
+    @conda
+    @bin_dir
+    @wraps(f)
+    def construct_condax_hook(
+        conda: Conda, config: Mapping[str, Any], bin_dir: Optional[Path], **kwargs
+    ):
+        return f(
+            condax=Condax(
+                conda,
+                bin_dir
+                or config.get("bin_dir", None)
+                or config.get("target_destination", None)  # Compatibility <=0.0.5
+                or consts.DEFAULT_PATHS.bin_dir,
+                FullPath(
+                    config.get("prefix_dir", None)
+                    or config.get("prefix_path", None)  # Compatibility <=0.0.5
+                    or consts.DEFAULT_PATHS.prefix_dir
+                ),
+            ),
+            **kwargs,
+        )
+
+    return construct_condax_hook
+
+
+def setup_logging(f: Callable) -> Callable:
     """
     This click option decorator adds -v and -q options to the CLI, then sets up logging with the specified level.
-    It passes the level to the decorated function as `log_level`.
     """
 
     @verbose
@@ -101,6 +176,6 @@ def log_level(f: Callable) -> Callable:
             )
         )
         logger.setLevel(level)
-        return f(log_level=level, **kwargs)
+        return f(**kwargs)
 
     return setup_logging_hook

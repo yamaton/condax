@@ -1,14 +1,16 @@
+import logging
 import os
 from pathlib import Path
 import platform
-from typing import List, Tuple, Union
+import shlex
+from typing import Iterable, TextIO, Tuple, Union
 import re
 import urllib.parse
 
 from condax.exceptions import CondaxError
 
 
-pat = re.compile(r"<=|>=|==|!=|<|>|=")
+pat = re.compile(r"(?=<=|>=|==|!=|<|>|=|$)")
 
 
 def split_match_specs(package_with_specs: str) -> Tuple[str, str]:
@@ -36,26 +38,36 @@ def split_match_specs(package_with_specs: str) -> Tuple[str, str]:
     >>> split_match_specs("numpy")
     ("numpy", "")
     """
-    name, *_ = pat.split(package_with_specs)
-    # replace with str.removeprefix() once Python>=3.9 is assured
-    match_specs = package_with_specs[len(name) :]
+    name, match_specs = pat.split(package_with_specs, 1)
     return name.strip(), match_specs.strip()
 
 
-def to_path(path: Union[str, Path]) -> Path:
+def package_name(package_with_specs: str) -> str:
     """
-    Convert a string to a pathlib.Path object.
+    Get the package name from a match specification.
     """
-    return Path(path).expanduser().resolve()
+    return split_match_specs(package_with_specs)[0]
 
 
-def mkdir(path: Union[Path, str]) -> None:
+def version_info(package_with_specs: str) -> str:
+    """
+    Get the version info from a match specification.
+    """
+    return split_match_specs(package_with_specs)[1]
+
+
+class FullPath(Path):
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(Path, Path(*args, **kwargs).expanduser().resolve())
+
+
+def mkdir(path: Path) -> None:
     """mkdir -p path"""
-    to_path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
 
 
 def quote(path: Union[Path, str]) -> str:
-    return f'"{str(path)}"'
+    return shlex.quote(str(path))
 
 
 def is_executable(path: Path) -> bool:
@@ -180,9 +192,3 @@ def to_bool(value: Union[str, bool]) -> bool:
         pass
 
     return False
-
-
-def is_env_dir(path: Union[Path, str]) -> bool:
-    """Check if a path is a conda environment directory."""
-    p = to_path(path)
-    return (p / "conda-meta" / "history").exists()

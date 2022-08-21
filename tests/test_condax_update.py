@@ -9,14 +9,15 @@ def test_condax_update_main_apps():
         update_package,
     )
     import condax.config as config
-    from condax.utils import to_path, is_env_dir
-    import condax.metadata as metadata
+    from condax.utils import FullPath
+    import condax.condax.metadata as metadata
+    from condax.conda.env_info import is_env
 
     # prep
     prefix_fp = tempfile.TemporaryDirectory()
-    prefix_dir = to_path(prefix_fp.name)
+    prefix_dir = FullPath(prefix_fp.name)
     bin_fp = tempfile.TemporaryDirectory()
-    bin_dir = to_path(bin_fp.name)
+    bin_dir = FullPath(bin_fp.name)
     channels = ["conda-forge", "bioconda"]
     config.set_via_value(prefix_dir=prefix_dir, bin_dir=bin_dir, channels=channels)
 
@@ -46,13 +47,13 @@ def test_condax_update_main_apps():
     exe_main = bin_dir / "gff3-to-ddbj"
 
     # Before installation there should be nothing
-    assert not is_env_dir(env_dir)
+    assert not is_env(env_dir)
     assert all(not app.exists() for app in apps_before_update)
 
     install_package(main_spec_before_update)
 
     # After installtion there should be an environment and apps
-    assert is_env_dir(env_dir)
+    assert is_env(env_dir)
     assert all(app.exists() and app.is_file() for app in apps_before_update)
 
     # gff3-to-ddbj --version was not implemented as of 0.1.1
@@ -62,7 +63,7 @@ def test_condax_update_main_apps():
     update_package(main_spec_after_update, update_specs=True)
 
     # After update there should be an environment and update apps
-    assert is_env_dir(env_dir)
+    assert is_env(env_dir)
     assert all(app.exists() and app.is_file() for app in apps_after_update)
     to_be_removed = apps_before_update - apps_after_update
 

@@ -4,7 +4,7 @@ import shutil
 from typing import Any, Dict, List, Optional, Union
 from condax.exceptions import CondaxError
 
-from condax.utils import to_path
+from condax.utils import FullPath
 import condax.condarc as condarc
 import yaml
 
@@ -17,7 +17,7 @@ _default_config_windows = os.path.join(
     _localappdata_dir, "condax", "condax", _config_filename
 )
 _default_config = _default_config_windows if os.name == "nt" else _default_config_unix
-DEFAULT_CONFIG = to_path(os.environ.get("CONDAX_CONFIG", _default_config))
+DEFAULT_CONFIG = FullPath(os.environ.get("CONDAX_CONFIG", _default_config))
 
 _xdg_data_home = os.environ.get("XDG_DATA_HOME", "~/.local/share")
 _default_prefix_dir_unix = os.path.join(_xdg_data_home, "condax", "envs")
@@ -25,22 +25,22 @@ _default_prefix_dir_win = os.path.join(_localappdata_dir, "condax", "condax", "e
 _default_prefix_dir = (
     _default_prefix_dir_win if os.name == "nt" else _default_prefix_dir_unix
 )
-DEFAULT_PREFIX_DIR = to_path(os.environ.get("CONDAX_PREFIX_DIR", _default_prefix_dir))
+DEFAULT_PREFIX_DIR = FullPath(os.environ.get("CONDAX_PREFIX_DIR", _default_prefix_dir))
 
-DEFAULT_BIN_DIR = to_path(os.environ.get("CONDAX_BIN_DIR", "~/.local/bin"))
+DEFAULT_BIN_DIR = FullPath(os.environ.get("CONDAX_BIN_DIR", "~/.local/bin"))
 
 _channels_in_condarc = condarc.load_channels()
 DEFAULT_CHANNELS = (
     os.environ.get("CONDAX_CHANNELS", " ".join(_channels_in_condarc)).strip().split()
 )
 
-CONDA_ENVIRONMENT_FILE = to_path("~/.conda/environments.txt")
+CONDA_ENVIRONMENT_FILE = FullPath("~/.conda/environments.txt")
 
 conda_path = shutil.which("conda")
 MAMBA_ROOT_PREFIX = (
-    to_path(conda_path).parent.parent
+    FullPath(conda_path).parent.parent
     if conda_path is not None
-    else to_path(os.environ.get("MAMBA_ROOT_PREFIX", "~/micromamba"))
+    else FullPath(os.environ.get("MAMBA_ROOT_PREFIX", "~/micromamba"))
 )
 
 
@@ -94,7 +94,7 @@ def set_via_file(config_file: Union[str, Path]):
     Raises:
         BadConfigFileError: If the config file is not valid.
     """
-    config_file = to_path(config_file)
+    config_file = FullPath(config_file)
     try:
         with config_file.open() as f:
             config = yaml.safe_load(f)
@@ -107,20 +107,20 @@ def set_via_file(config_file: Union[str, Path]):
 
     # For compatibility with condax 0.0.5
     if "prefix_path" in config:
-        prefix_dir = to_path(config["prefix_path"])
+        prefix_dir = FullPath(config["prefix_path"])
         C._set("prefix_dir", prefix_dir)
 
     # For compatibility with condax 0.0.5
     if "target_destination" in config:
-        bin_dir = to_path(config["target_destination"])
+        bin_dir = FullPath(config["target_destination"])
         C._set("bin_dir", bin_dir)
 
     if "prefix_dir" in config:
-        prefix_dir = to_path(config["prefix_dir"])
+        prefix_dir = FullPath(config["prefix_dir"])
         C._set("prefix_dir", prefix_dir)
 
     if "bin_dir" in config:
-        bin_dir = to_path(config["bin_dir"])
+        bin_dir = FullPath(config["bin_dir"])
         C._set("bin_dir", bin_dir)
 
     if "channels" in config:
@@ -137,10 +137,10 @@ def set_via_value(
     Set a part of values in the object C by passing values directly.
     """
     if prefix_dir:
-        C._set("prefix_dir", to_path(prefix_dir))
+        C._set("prefix_dir", FullPath(prefix_dir))
 
     if bin_dir:
-        C._set("bin_dir", to_path(bin_dir))
+        C._set("bin_dir", FullPath(bin_dir))
 
     if channels:
         C._set("channels", channels + C.channels())
