@@ -3,7 +3,7 @@ import sys
 from urllib.error import HTTPError
 from condax.exceptions import CondaxError
 from .install import install
-from .remove import remove, uninstall
+from .remove import remove
 from .update import update
 from .list import run_list
 from .ensure_path import ensure_path
@@ -18,7 +18,6 @@ def main():
     for subcommand in (
         install,
         remove,
-        uninstall,
         update,
         run_list,
         ensure_path,

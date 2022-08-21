@@ -1,4 +1,5 @@
 import click
+from click_aliases import ClickAliasedGroup
 
 import condax.config as config
 from condax import __version__
@@ -11,7 +12,8 @@ from condax import __version__
 
       Conda environment location is {config.DEFAULT_PREFIX_DIR}\n
       Links to apps are placed in {config.DEFAULT_BIN_DIR}
-    """
+    """,
+    cls=ClickAliasedGroup,
 )
 @click.version_option(
     __version__,
