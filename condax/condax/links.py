@@ -16,7 +16,7 @@ def create_links(
     location: Path,
     is_forcing: bool = False,
 ):
-    """Create links to the executables in `executables_to_link` in `bin_dir`.
+    """Create links to the executables in `executables_to_link` in `location`.
 
     Args:
         env: The conda environment to link executables from.
@@ -34,7 +34,7 @@ def create_links(
 
 
 def create_link(env: Path, exe: Path, location: Path, is_forcing: bool = False) -> bool:
-    """Create a link to the executable in `exe` in `bin_dir`.
+    """Create a link to the executable in `exe` in `location`.
 
     Args:
         env: The conda environment to link executables from.
@@ -78,24 +78,32 @@ def create_link(env: Path, exe: Path, location: Path, is_forcing: bool = False) 
     return True
 
 
-def remove_links(package: str, location: Path, executables_to_unlink: Iterable[str]):
+def remove_links(env: Path, executables_to_unlink: Iterable[str], location: Path):
+    """Remove links in `location` which point to to executables in `env` whose names match those in `executables_to_unlink`.
+
+    Args:
+        env: The conda environment which the links must point to to be removed.
+        location: The location the links are in.
+        executables_to_unlink: The names of the executables to unlink.
+    """
     unlinked: List[str] = []
+    executables_to_unlink = tuple(executables_to_unlink)
     for executable_name in executables_to_unlink:
         link_path = location / _get_wrapper_name(executable_name)
         if os.name == "nt":
             # FIXME: this is hand-waving for now
             utils.unlink(link_path)
         else:
-            wrapper_env = wrapper.read_env_name(link_path)
+            wrapper_env = wrapper.read_prefix(link_path)
 
             if wrapper_env is None:
                 utils.unlink(link_path)
                 unlinked.append(f"{executable_name} \t (failed to get env)")
                 continue
 
-            if wrapper_env != package:
+            if wrapper_env.samefile(env):
                 logger.warning(
-                    f"Keeping {executable_name} as it runs in environment `{wrapper_env}`, not `{package}`."
+                    f"Keeping {executable_name} as it runs in environment `{wrapper_env}`, not `{env}`."
                 )
                 continue
 

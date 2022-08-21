@@ -25,24 +25,35 @@ class CondaxMetaData(Serializable):
         main_package: MainPackage,
         injected_packages: Iterable[InjectedPackage] = (),
     ):
-        self.main_package = main_package
-        self.injected_packages = {pkg.name: pkg for pkg in injected_packages}
+        self._main_package = main_package
+        self._injected_packages = {pkg.name: pkg for pkg in injected_packages}
 
     def inject(self, package: InjectedPackage):
-        self.injected_packages[package.name] = package
+        self._injected_packages[package.name] = package
 
     def uninject(self, name: str):
-        self.injected_packages.pop(name, None)
+        self._injected_packages.pop(name, None)
 
     @property
     def apps(self) -> Set[str]:
-        return self.main_package.apps | self.injected_packages.keys()
+        """All the executable apps in the condax environment, including injected ones."""
+        return self._main_package._apps.union(
+            *(pkg._apps for pkg in self._injected_packages.values())
+        )
+
+    @property
+    def main_package(self) -> MainPackage:
+        return self._main_package
+
+    @property
+    def injected_packages(self) -> Set[InjectedPackage]:
+        return set(self._injected_packages.values())
 
     def serialize(self) -> Dict[str, Any]:
         return {
-            "main_package": self.main_package.serialize(),
+            "main_package": self._main_package.serialize(),
             "injected_packages": [
-                pkg.serialize() for pkg in self.injected_packages.values()
+                pkg.serialize() for pkg in self._injected_packages.values()
             ],
         }
 
@@ -61,12 +72,12 @@ class CondaxMetaData(Serializable):
         return cls(**serialized)
 
     def save(self) -> None:
-        metadata_path = self.main_package.prefix / self.metadata_file
+        metadata_path = self._main_package.prefix / self.metadata_file
         with metadata_path.open("w") as f:
             json.dump(self.serialize(), f, indent=4)
 
 
-def create_metadata(
+def create(
     prefix: Path,
     package: Optional[str] = None,
     executables: Optional[Iterable[Path]] = None,
@@ -80,9 +91,26 @@ def create_metadata(
         executables: The executables to add to the metadata. If not provided, they are searched for in conda's metadata.
     """
     package = package or prefix.name
-    apps = [p.name for p in (executables or env_info.find_exes(prefix, package))]
+    apps = (p.name for p in (executables or env_info.find_exes(prefix, package)))
     main = MainPackage(package, prefix, apps)
     meta = CondaxMetaData(main)
+    meta.save()
+
+
+def inject(prefix: Path, packages_to_inject: Iterable[str], include_apps: bool = False):
+    """
+    Inject the given packages into the condax_metadata.json file for the environment at `prefix`.
+
+    Args:
+        prefix: The path to the environment.
+        packages_to_inject: The names of the packages to inject.
+        include_apps: Whether to make links to the executables of the injected packages.
+    """
+    meta = load(prefix)
+    for pkg in packages_to_inject:
+        apps = (p.name for p in env_info.find_exes(prefix, pkg))
+        pkg_to_inject = InjectedPackage(pkg, apps, include_apps=include_apps)
+        meta.inject(pkg_to_inject)
     meta.save()
 
 
@@ -101,7 +129,7 @@ def load(prefix: Path) -> CondaxMetaData:
     # For backward compatibility: metadata can be absent
     if meta is None:
         logger.info(f"Recreating condax_metadata.json in {prefix}...")
-        create_metadata(prefix)
+        create(prefix)
         meta = _load(prefix)
         if meta is None:
             raise NoMetadataError(prefix)

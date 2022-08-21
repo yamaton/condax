@@ -1,17 +1,17 @@
 import json
 from pathlib import Path
-from typing import List, Union, Set
+from typing import Union, Set
 
 from condax.utils import FullPath
 from condax import utils
-from .exceptions import NoPackageMetadata
+from .exceptions import NoPackageMetadataError
 
 
 def is_env(path: Path) -> bool:
-    return (path / "conda-meta").is_dir()
+    return (path / "conda-meta/history").is_file()
 
 
-def find_exes(prefix: Path, package: str) -> List[Path]:
+def find_exes(prefix: Path, package: str) -> Set[Path]:
     """Find executables in environment `prefix` provided py a given `package`.
 
     Args:
@@ -22,7 +22,7 @@ def find_exes(prefix: Path, package: str) -> List[Path]:
         A list of executables in `prefix` provided by `package`.
 
     Raises:
-        DeterminePkgFilesError: If the package files could not be determined.
+        NoPackageMetadataError: If the package files could not be determined.
     """
 
     def is_exe(p: Union[str, Path]) -> bool:
@@ -44,8 +44,20 @@ def find_exes(prefix: Path, package: str) -> List[Path]:
                 }
                 break
     else:
-        raise NoPackageMetadata(package)
+        raise NoPackageMetadataError(package)
 
-    return sorted(
+    return {
         prefix / fn for fn in potential_executables if utils.is_executable(prefix / fn)
-    )
+    }
+
+
+def find_envs(directory: Path) -> Set[Path]:
+    """Find all environments in `directory`.
+
+    Args:
+        directory: The directory to search in.
+
+    Returns:
+        A list of environment prefixes in `directory`.
+    """
+    return {prefix for prefix in directory.iterdir() if is_env(prefix)}

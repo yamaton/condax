@@ -1,11 +1,9 @@
-import logging
-import sys
 from typing import List
 
 import click
 
 import condax.core as core
-from condax import __version__
+from condax.condax import Condax
 
 from . import cli, options
 
@@ -24,22 +22,29 @@ from . import cli, options
     "--update-specs", is_flag=True, help="Update based on provided specifications."
 )
 @options.common
+@options.is_forcing
+@options.channels
 @click.argument("packages", required=False, nargs=-1)
-@click.pass_context
 def update(
-    ctx: click.Context,
-    all: bool,
+    condax: Condax,
     packages: List[str],
+    all: bool,
     update_specs: bool,
-    log_level: int,
+    is_forcing: bool,
+    channels: List[str],
     **_
 ):
+
+    if not (all or packages):
+        raise click.BadArgumentUsage(
+            "No packages specified. To update all packages use --all."
+        )
+
+    if all and packages:
+        raise click.BadArgumentUsage("Cannot specify packages and --all.")
+
     if all:
-        core.update_all_packages(update_specs)
-    elif packages:
-        for pkg in packages:
-            core.update_package(
-                pkg, update_specs, conda_stdout=log_level <= logging.INFO
-            )
+        condax.update_all_packages(channels, is_forcing)
     else:
-        ctx.fail("No packages specified.")
+        for pkg in packages:
+            condax.update_package(pkg, channels, update_specs, is_forcing)

@@ -44,9 +44,16 @@ def split_match_specs(package_with_specs: str) -> Tuple[str, str]:
 
 def package_name(package_with_specs: str) -> str:
     """
-    Get the name of a conda environment from its specification.
+    Get the package name from a match specification.
     """
     return split_match_specs(package_with_specs)[0]
+
+
+def version_info(package_with_specs: str) -> str:
+    """
+    Get the version info from a match specification.
+    """
+    return split_match_specs(package_with_specs)[1]
 
 
 class FullPath(Path):

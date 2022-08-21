@@ -7,7 +7,8 @@ import sys
 from typing import IO, Iterable, Optional
 from halo import Halo
 
-from condax import consts
+from condax import consts, utils
+from condax.conda.exceptions import CondaCommandError
 from .installers import ensure_conda
 
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class Conda:
-    def __init__(self, channels: Iterable[str]) -> None:
+    def __init__(self, channels: Iterable[str] = ()) -> None:
         """This class is a wrapper for conda's CLI.
 
         Args:
@@ -51,10 +52,41 @@ class Conda:
             spec: Package spec to install. e.g. "python=3.6", "python>=3.6", "python", etc.
             extra_channels: Additional channels to search for packages in.
         """
-        cmd = f"create --prefix {prefix} {' '.join(f'--channel {c}' for c in itertools.chain(extra_channels, self.channels))} --quiet --yes {shlex.quote(spec)}"
+        channels = " ".join(
+            f"--channel {c}" for c in itertools.chain(extra_channels, self.channels)
+        )
+        cmd = f"create --prefix {prefix} {channels} --quiet --yes {shlex.quote(spec)}"
         if logger.getEffectiveLevel() <= logging.INFO:
             with Halo(
                 text=f"Creating environment for {spec}",
+                spinner="dots",
+                stream=sys.stderr,
+            ):
+                self._run(cmd)
+        else:
+            self._run(cmd)
+
+    def update_env(
+        self,
+        prefix: Path,
+        spec: str,
+        update_specs: bool,
+        extra_channels: Iterable[str] = (),
+    ) -> None:
+        """Update packages in an environment."""
+        version_info = utils.version_info(spec)
+        # NOTE: `conda update` does not support version specification.
+        # It suggets to use `conda install` instead.
+        ## FIXME: this update process is inflexible
+        subcmd = "install" if self.exe.name == "conda" and version_info else "update"
+
+        channels = " ".join(
+            f"--channel {c}" for c in itertools.chain(extra_channels, self.channels)
+        )
+        cmd = f"{subcmd} --prefix {prefix} {channels} --quiet --yes {'--update-specs' if update_specs else ''} {shlex.quote(spec) if version_info else '--all'}"
+        if logger.getEffectiveLevel() <= logging.INFO:
+            with Halo(
+                text=f"Updating environment for {spec}",
                 spinner="dots",
                 stream=sys.stderr,
             ):
@@ -86,11 +118,14 @@ class Conda:
             stdout_done = self._log_stream(p.stdout, stdout_level)
             stderr_done = self._log_stream(p.stderr, stderr_level)
 
-        ret_code = p.wait()
+        p.wait()
+
+        if p.returncode != 0:
+            raise CondaCommandError(cmd, p)
 
         return subprocess.CompletedProcess(
             cmd_list,
-            ret_code,
+            p.returncode,
             p.stdout.read() if p.stdout else None,
             p.stderr.read() if p.stderr else None,
         )

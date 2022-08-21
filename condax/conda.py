@@ -79,45 +79,6 @@ def uninject_from_conda_env(
     )
 
 
-def update_conda_env(spec: str, update_specs: bool, stdout: bool) -> None:
-    """Update packages in an environment.
-
-    NOTE: More controls of package updates might be needed.
-    """
-    _, match_spec = utils.split_match_specs(spec)
-    conda_exe = ensure_conda()
-    prefix = conda_env_prefix(spec)
-    channels_args = [x for c in C.channels() for x in ["--channel", c]]
-    update_specs_args = ["--update-specs"] if update_specs else []
-    # NOTE: `conda update` does not support version specification.
-    # It suggets to use `conda install` instead.
-    args: Iterable[str]
-    if conda_exe.name == "conda" and match_spec:
-        subcmd = "install"
-        args = (shlex.quote(spec),)
-    elif match_spec:
-        subcmd = "update"
-        args = (*update_specs_args, shlex.quote(spec))
-    else:
-        ## FIXME: this update process is inflexible
-        subcmd = "update"
-        args = (*update_specs_args, "--all")
-
-    command: List[Union[Path, str]] = [
-        conda_exe,
-        subcmd,
-        "--prefix",
-        prefix,
-        "--override-channels",
-        "--quiet",
-        "--yes",
-        *channels_args,
-        *args,
-    ]
-
-    _subprocess_run(command, suppress_stdout=not stdout)
-
-
 def get_package_info(package: str, specific_name=None) -> Tuple[str, str, str]:
     env_prefix = conda_env_prefix(package)
     package_name = package if specific_name is None else specific_name

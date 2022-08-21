@@ -84,11 +84,6 @@ def uninject_package_from(
     logger.info(f"`{pkgs_str}` has been uninjected from `{env_name}`")
 
 
-def update_all_packages(update_specs: bool = False, is_forcing: bool = False):
-    for package in _get_all_envs():
-        update_package(package, update_specs=update_specs, is_forcing=is_forcing)
-
-
 def list_all_packages(short=False, include_injected=False) -> None:
     if short:
         _list_all_packages_short(include_injected)
@@ -178,85 +173,6 @@ def _print_condax_dirs() -> None:
         f"conda envs are in {C.prefix_dir()}\n"
         f"apps are exposed on your $PATH at {C.bin_dir()}\n"
     )
-
-
-def update_package(
-    spec: str,
-    update_specs: bool = False,
-    is_forcing: bool = False,
-    conda_stdout: bool = False,
-) -> None:
-
-    env, _ = utils.split_match_specs(spec)
-    exit_if_not_installed(env)
-    try:
-        main_apps_before_update = set(conda.determine_executables_from_env(env))
-        injected_apps_before_update = {
-            injected: set(conda.determine_executables_from_env(env, injected))
-            for injected in _get_injected_packages(env)
-        }
-        conda.update_conda_env(spec, update_specs, conda_stdout)
-        main_apps_after_update = set(conda.determine_executables_from_env(env))
-        injected_apps_after_update = {
-            injected: set(conda.determine_executables_from_env(env, injected))
-            for injected in _get_injected_packages(env)
-        }
-
-        if (
-            main_apps_before_update == main_apps_after_update
-            and injected_apps_before_update == injected_apps_after_update
-        ):
-            logger.info(f"No updates found: {env}")
-
-        to_create = main_apps_after_update - main_apps_before_update
-        to_delete = main_apps_before_update - main_apps_after_update
-        to_delete_apps = [path.name for path in to_delete]
-
-        # Update links of main apps
-        create_links(env, to_create, is_forcing)
-        remove_links(env, to_delete_apps)
-
-        # Update links of injected apps
-        for pkg in _get_injected_packages(env):
-            to_delete = (
-                injected_apps_before_update[pkg] - injected_apps_after_update[pkg]
-            )
-            to_delete_apps = [p.name for p in to_delete]
-            remove_links(env, to_delete_apps)
-
-            to_create = (
-                injected_apps_after_update[pkg] - injected_apps_before_update[pkg]
-            )
-            create_links(env, to_create, is_forcing)
-
-        logger.info(f"{env} update successfully")
-
-    except subprocess.CalledProcessError:
-        logger.error(f"Failed to update `{env}`")
-        logger.warning(f"Recreating the environment...")
-
-        remove_package(env, conda_stdout)
-        install_package(env, is_forcing=is_forcing, conda_stdout=conda_stdout)
-
-    # Update metadata file
-    _create_metadata(env)
-    for pkg in _get_injected_packages(env):
-        _inject_to_metadata(env, pkg)
-
-
-def _inject_to_metadata(
-    env: str, packages_to_inject: Iterable[str], include_apps: bool = False
-):
-    """
-    Inject the package into the condax_metadata.json file for the env.
-    """
-    meta = _load_metadata(env)
-    for pkg in packages_to_inject:
-        apps = [p.name for p in conda.determine_executables_from_env(env, pkg)]
-        pkg_to_inject = metadata.InjectedPackage(pkg, apps, include_apps=include_apps)
-        meta.uninject(pkg)  # overwrites if necessary
-        meta.inject(pkg_to_inject)
-    meta.save()
 
 
 def _uninject_from_metadata(env: str, packages_to_uninject: Iterable[str]):
@@ -435,7 +351,7 @@ def _prune_links():
         if not wrapper.is_wrapper(link):
             continue
 
-        target_env = wrapper.read_env_name(link)
+        target_env = wrapper.read_prefix(link)
         if target_env is None:
             logging.info(f"Failed to read env name from {link}")
             continue

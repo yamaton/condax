@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, Set
 
 from condax.utils import FullPath
 from .serializable import Serializable
@@ -8,8 +8,13 @@ from .serializable import Serializable
 class _PackageBase(Serializable):
     def __init__(self, name: str, apps: Iterable[str], include_apps: bool):
         self.name = name
-        self.apps = set(apps)
+        self._apps = set(apps)
         self.include_apps = include_apps
+
+    @property
+    def apps(self) -> Set[str]:
+        """The executable apps provided by the package."""
+        return self._apps
 
     def __lt__(self, other):
         return self.name < other.name
@@ -17,7 +22,7 @@ class _PackageBase(Serializable):
     def serialize(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "apps": list(self.apps),
+            "apps": list(self._apps),
             "include_apps": self.include_apps,
         }
 

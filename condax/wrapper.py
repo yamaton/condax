@@ -9,7 +9,7 @@ from typing import Optional, List, Union
 from condax.utils import FullPath
 
 
-def read_env_name(script_path: Union[str, Path]) -> Optional[str]:
+def read_prefix(script_path: Union[str, Path]) -> Optional[Path]:
     """
     Read a condax bash script.
 
@@ -45,7 +45,7 @@ def read_env_name(script_path: Union[str, Path]) -> Optional[str]:
         logging.warning(msg)
         return None
 
-    return namespace.prefix.name
+    return namespace.prefix
 
 
 def is_wrapper(exec_path: Union[str, Path]) -> bool:
