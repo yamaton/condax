@@ -43,7 +43,7 @@ channels = click.option(
     multiple=True,
     help=f"""Use the channels specified to install. If not specified condax will
     default to using {config.DEFAULT_CHANNELS}, or 'channels' in the config file.""",
-    callback=lambda _, __, c: (c and config.set_via_value(channels=c)) or c,
+    callback=lambda _, __, c: (c and config.set_via_value(channels=list(c))) or c,
 )
 
 envname = click.option(
