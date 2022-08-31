@@ -33,7 +33,7 @@ def _ensure(execs: Iterable[str], installer: Callable[[], Path]) -> Path:
 
 
 def ensure_conda() -> Path:
-    return _ensure(("conda", "mamba"), setup_conda)
+    return _ensure(("mamba", "conda"), setup_conda)
 
 
 def ensure_micromamba() -> Path:
