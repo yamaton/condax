@@ -8,7 +8,7 @@ import urllib.parse
 from condax.exceptions import CondaxError
 
 
-pat = re.compile(r"<=|>=|==|!=|<|>|=")
+pat = re.compile(r"(?=~=|<=|>=|==|!=|<|>|=|$)")
 
 
 def split_match_specs(package_with_specs: str) -> Tuple[str, str]:
