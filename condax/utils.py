@@ -8,7 +8,7 @@ import urllib.parse
 from condax.exceptions import CondaxError
 
 
-pat = re.compile(r"<=|>=|==|!=|<|>|=")
+pat = re.compile(r"(?=~=|<=|>=|==|!=|<|>|=|$)")
 
 
 def split_match_specs(package_with_specs: str) -> Tuple[str, str]:
@@ -19,26 +19,24 @@ def split_match_specs(package_with_specs: str) -> Tuple[str, str]:
     Assume the argument `package_with_specs` is unquoted.
 
     >>> split_match_specs("numpy=1.11")
-    ("numpy", "=1.11")
+    ('numpy', '=1.11')
 
     >>> split_match_specs("numpy==1.11")
-    ("numpy", "==1.11")
+    ('numpy', '==1.11')
 
     >>> split_match_specs("numpy>1.11")
-    ("numpy", ">1.11")
+    ('numpy', '>1.11')
 
     >>> split_match_specs("numpy=1.11.1|1.11.3")
-    ("numpy", "=1.11.1|1.11.3")
+    ('numpy', '=1.11.1|1.11.3')
 
     >>> split_match_specs("numpy>=1.8,<2")
-    ("numpy", ">=1.8,<2")
+    ('numpy', '>=1.8,<2')
 
     >>> split_match_specs("numpy")
-    ("numpy", "")
+    ('numpy', '')
     """
-    name, *_ = pat.split(package_with_specs)
-    # replace with str.removeprefix() once Python>=3.9 is assured
-    match_specs = package_with_specs[len(name) :]
+    name, match_specs = pat.split(package_with_specs, 1)
     return name.strip(), match_specs.strip()
 
 
