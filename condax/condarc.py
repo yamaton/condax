@@ -28,8 +28,11 @@ def load_channels() -> List[str]:
 
 
 def _load_yaml(path: Path) -> List[str]:
-    with open(path, "r") as f:
+    with path.open() as f:
         d = yaml.safe_load(f)
+
+    if not d:
+        return []
 
     res = d.get("channels", [])
     return res
