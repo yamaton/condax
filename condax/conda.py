@@ -375,11 +375,12 @@ def export_env(env_name: str, out_dir: Path, stdout: bool = False) -> None:
     )
 
 
-def import_env(env_file: Path, is_forcing: bool = False, stdout: bool = False) -> None:
+def import_env(env_file: Path, is_forcing: bool = False, stdout: bool = False, env_name: Optional[str] = None) -> None:
     """Import an environment from a conda environment file."""
     conda_exe = ensure_conda()
     force_args = ["--force"] if is_forcing else []
-    env_name = env_file.stem
+    if env_name is None:
+        env_name = env_file.stem
     prefix = conda_env_prefix(env_name)
     _subprocess_run(
         [

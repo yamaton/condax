@@ -4,7 +4,6 @@ import os
 import shlex
 import subprocess
 import shutil
-import sys
 from pathlib import Path
 from typing import Counter, Dict, Iterable, List
 
@@ -125,6 +124,60 @@ def install_package(
     create_links(package, executables_to_link, is_forcing=is_forcing)
     _create_metadata(package)
     logger.info(f"`{package}` has been installed by condax")
+
+
+class PackageMissingInEnvFileError(CondaxError):
+    def __init__(self, package: str):
+        super().__init__(
+            20,
+            f"Package `{package}` is missing in the provided environment file. Specify package(s) in the `dependencies`.",
+        )
+
+
+def install_via_env_file(
+    envfile: Path,
+    packages: List[str],
+    is_forcing: bool = False,
+    conda_stdout: bool = False,
+):
+    """Install a package via conda environment YAML file.
+
+    The first package becomes the environment name, and the rest will be injected to the environment.
+    """
+
+    dependent_packages = utils.get_env_dependencies(envfile)
+    for p in packages:
+        if p not in dependent_packages:
+            raise PackageMissingInEnvFileError(p)
+
+    # Take the first user-specified package name as the environment name
+    package_name = packages[0]
+    if conda.has_conda_env(package_name):
+        if is_forcing:
+            logger.warning(f"Overwriting environment for {package_name}")
+            conda.remove_conda_env(package_name, conda_stdout)
+        else:
+            raise PackageInstalledError(package_name)
+
+    conda.import_env(envfile, is_forcing, conda_stdout, package_name)
+    executables_to_link = conda.determine_executables_from_env(package_name)
+    utils.mkdir(C.bin_dir())
+    create_links(package_name, executables_to_link, is_forcing=is_forcing)
+    _create_metadata(package_name)
+
+    # Treat the rest of user-specified packages as injected apps
+    injected_packages = packages[1:]
+    _inject_to_metadata(package_name, injected_packages, include_apps=True)
+    for injected_pkg in injected_packages:
+        executables_to_link = conda.determine_executables_from_env(
+            package_name,
+            injected_pkg,
+        )
+        create_links(package_name, executables_to_link, is_forcing=is_forcing)
+
+    logger.info(
+        f"`Dependencies in {envfile.name} have been installed as the package `{package_name}`."
+    )
 
 
 def inject_package_to(

@@ -5,6 +5,8 @@ from typing import List, Tuple, Union
 import re
 import urllib.parse
 
+import yaml
+
 from condax.exceptions import CondaxError
 
 
@@ -184,3 +186,21 @@ def is_env_dir(path: Union[Path, str]) -> bool:
     """Check if a path is a conda environment directory."""
     p = to_path(path)
     return (p / "conda-meta" / "history").exists()
+
+
+def get_env_dependencies(path: Path) -> List[str]:
+    """Get a list of dependent packages in conda environment in YAML
+
+    Arguments:
+        path: path to the conda environment YAML file
+
+    Returns:
+        a list of dependencies package names
+    """
+
+    with path.open() as f:
+        d = yaml.safe_load(f)
+
+    specs = d.get("dependencies", [])
+    packages = [split_match_specs(spec)[0] for spec in specs]
+    return packages
