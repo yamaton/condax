@@ -14,6 +14,7 @@ from typing import Callable, Iterable, List, Optional, Set, Tuple, Union
 import requests
 
 from condax.config import C
+from condax.constants import EXCLUCDED_FILE_EXTENSIONS
 from condax.exceptions import CondaxError
 from condax.utils import to_path
 import condax.utils as utils
@@ -255,7 +256,10 @@ def determine_executables_from_env(
 ) -> List[Path]:
     def is_good(p: Union[str, Path]) -> bool:
         p = to_path(p)
-        return p.parent.name in ("bin", "sbin", "scripts", "Scripts")
+        res = (p.parent.name in ("bin", "sbin", "scripts", "Scripts")) and (
+            p.suffix not in EXCLUCDED_FILE_EXTENSIONS
+        )
+        return res
 
     env_prefix = conda_env_prefix(package)
     target_name = injected_package if injected_package else package
@@ -375,7 +379,12 @@ def export_env(env_name: str, out_dir: Path, stdout: bool = False) -> None:
     )
 
 
-def import_env(env_file: Path, is_forcing: bool = False, stdout: bool = False, env_name: Optional[str] = None) -> None:
+def import_env(
+    env_file: Path,
+    is_forcing: bool = False,
+    stdout: bool = False,
+    env_name: Optional[str] = None,
+) -> None:
     """Import an environment from a conda environment file."""
     conda_exe = ensure_conda()
     force_args = ["--force"] if is_forcing else []
