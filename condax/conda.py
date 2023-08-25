@@ -404,3 +404,17 @@ def import_env(
         ],
         suppress_stdout=not stdout,
     )
+
+
+def mamba_clean_all(stdout: bool = False) -> None:
+    """Run `mamba clean --all`."""
+    conda_exe = ensure_conda()
+    _subprocess_run(
+        [
+            conda_exe,
+            "clean",
+            "--all",
+            "--yes",
+        ],
+        suppress_stdout=not stdout,
+    )

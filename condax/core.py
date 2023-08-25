@@ -588,23 +588,26 @@ def import_environments(
 ) -> None:
     """Import all environments from a directory."""
     p = Path(in_dir)
-    print("Started importing environments in", p)
-    for envfile in p.glob("*.yml"):
+    logger.info(f"Started importing environments in {p}")
+    for i, envfile in enumerate(p.glob("*.yml")):
         env = envfile.stem
         if conda.has_conda_env(env):
             if is_forcing:
                 remove_package(env, conda_stdout)
             else:
-                print(f"Environment {env} already exists. Skipping...")
+                logger.info(f"Environment {env} already exists. Skipping...")
                 continue
 
         conda.import_env(envfile, is_forcing, conda_stdout)
-
+        # clean up every 10 packages
+        if (i + 1) % 10 == 0:
+            logger.info("Cleaning up...")
+            conda.mamba_clean_all(conda_stdout)
         metafile = p / (env + ".json")
         _overwrite_metadata(metafile)
         _recreate_links(env)
 
-    print("Done.")
+    logger.info("Done imports.")
 
 
 def _get_executables_to_link(env: str) -> List[Path]:
