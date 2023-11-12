@@ -258,6 +258,8 @@ def determine_executables_from_env(
         p = to_path(p)
         res = (p.parent.name in ("bin", "sbin", "scripts", "Scripts")) and (
             p.suffix not in EXCLUCDED_FILE_EXTENSIONS
+        ) and (
+            not p.name.startswith(".") and not p.name.startswith("_")
         )
         return res
 
