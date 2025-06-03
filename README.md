@@ -1,4 +1,8 @@
-# condax (forked)
+# condax (forked) - DEPRECATED
+
+> [!WARNING]
+> This project is now deprecated in favor of `pixi global`. Please see the [pixi documentation](https://pixi.sh/latest/switching_from/conda/#global-environments) for more information.
+
 
 ## What is this?
 
